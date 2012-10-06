@@ -24,8 +24,8 @@ class brickyard{
 		include $filename;
 	}
 	
-	public function error_handler($errno,$errmsg,$errfile="",$errline=-1){
-		$this->errors[]=array("no"=>$errno,"message"=>$errmsg,"file"=>$errfile,"line"=>$errline);
+	function error_handler($errno, $errstr, $errfile, $errline ) {
+		throw new ErrorException($errstr, $errno, 0, $errfile, $errline);
 	}
 	
 	function bluescreen($message){
