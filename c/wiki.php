@@ -1,5 +1,5 @@
 <?php
-class wiki{
+class c_wiki{
 
 
 	function index(){

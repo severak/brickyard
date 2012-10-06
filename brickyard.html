@@ -1,0 +1,362 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html>
+<head>
+	<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+	<title>Brickyard framework</title>
+	<link rel="stylesheet" type="text/css" href="default.css" />
+</head>
+<body>
+
+<h1>Brickyard framework</h1>
+
+<p>Yet another php framework.</p>
+
+<h2>Usage</h2>
+
+<p>The usage is really simple. Minimal index.php file (an entry point and setup) look like this:</p>
+
+<p>Firstly you need to include framework file and get one instance.</p>
+
+
+<pre id="index.php" title="index.php">
+&lt;?php
+require &quot;brickyard.php&quot;;
+$f=new brickyard();
+</pre>
+
+
+<p>Init function enables autoloading and exception handling.</p>
+
+
+<pre id="index.php" title="index.php">
+$f-&gt;init();
+</pre>
+
+
+<p>Finally run function will call router and start right controller and method. </p>
+
+
+<pre id="index.php" title="index.php">
+$f-&gt;run();
+</pre>
+
+
+<h2>How it works?</h2>
+
+<p>Here follows brickyard core explained.</p>
+
+<h3>Main function</h3>
+
+<p>It starts output control. It's useful for error pages.</p>
+
+
+<pre id="run" title="run">
+ob_start();
+</pre>
+
+
+<p>Get from router current controller, method and it's arguments. Note that controller has _c prefix before it's class name.</p>
+
+
+<pre id="run" title="run">
+$controllerName = &quot;c_&quot; . $this-&gt;router-&gt;getController();
+$methodName = $this-&gt;router-&gt;getMethod();
+$args = $this-&gt;router-&gt;getArgs();
+</pre>
+
+
+<p>Tries to autoload controller.</p>
+
+
+<pre id="run" title="run">
+$controllerInstance = new $controllerName;
+</pre>
+
+
+<p>Hand over framework instance to controller.</p>
+
+<pre id="run" title="run">
+$controllerInstance-&gt;framework=$this;
+</pre>
+
+
+<p>And finally call controller's method or throw Exception.</p>
+
+
+<pre id="run" title="run">
+$call=array($controllerInstance, $methodName);
+if (is_callable($call)){
+    call_user_func_array($call,$args);
+}else{
+    throw new Exception('Method ' . $methodName . ' is invalid!');
+}
+</pre>
+
+
+<h3>Autoloading</h3>
+
+<p>Class name is translated to filename. By this rules:</p>
+
+<ul>
+    <li>underscores in class names are replaced by directory separators</li>
+    <li>last segment will have .php file extension</li>
+</ul>
+
+
+<pre id="autoload" title="autoload">
+$filename=$this-&gt;path.DIRECTORY_SEPARATOR;
+$filename.=str_replace(&quot;_&quot;, DIRECTORY_SEPARATOR, $className);
+$filename.=&quot;.php&quot;;
+</pre>
+
+
+<p>We will require it if it exists.</p>
+
+
+<pre id="autoload" title="autoload">
+if (file_exists($filename)){
+    require $filename;
+</pre>
+
+
+<p>Elseway we will throw readable exception.</p>
+
+
+<pre id="autoload" title="autoload">
+} else {
+    throw new Exception('Class ' . $className . ' not found! Tried to find it in ' . $filename . '.');
+}
+</pre>
+
+
+<h3>Exception handling</h3>
+
+<p>If framework is in develMode, we will show debug message.</p>
+
+
+<pre id="exception handling" title="exception handling">
+if ($this-&gt;develMode){
+    &lt;&lt;show debug message&gt;&gt;
+} else {
+    echo 'Silent error!';
+}
+</pre>
+
+
+<p>Before showing any debug message we will erase output.</p>
+
+
+<pre id="show debug message" title="show debug message">
+ob_clean();
+</pre>
+
+
+<p>Compose this message and showit to user.</p>
+
+
+<pre id="show debug message" title="show debug message">
+$out=&quot;&lt;html&gt;&lt;head&gt;&lt;title&gt;error&lt;/title&gt;&lt;/head&gt;&lt;body&gt;&lt;h1&gt;:-(&lt;/h1&gt;&quot;;
+$out.=&quot;&lt;div&gt;&quot; . nl2br( $e-&gt;getMessage() ) . &quot;&lt;/div&gt;&quot;;
+$out.=&quot;&lt;pre&gt;&quot; . $e-&gt;getTraceAsString() . &quot;&lt;/pre&gt;&quot;;
+$out.=&quot;&lt;/body&gt;&lt;/html&gt;&quot;;
+echo $out;
+exit;
+</pre>
+
+
+<h3>Error handling</h3>
+
+<p>This is simple rethrowing to ErrorException.</p>
+
+
+<pre id="error handling" title="error handling">
+function error_handler($errno, $errstr, $errfile, $errline ) {
+    throw new ErrorException($errstr, $errno, 0, $errfile, $errline);
+}
+</pre>
+
+
+<h3>Init function</h3>
+
+<p>We register autoload.</p>
+
+
+<pre id="init" title="init">
+spl_autoload_register(array($this,&quot;autoload&quot;));
+</pre>
+
+
+<p>Error handling.</p>
+
+<pre id="init" title="init">
+set_error_handler(array($this,&quot;error_handler&quot;));
+</pre>
+
+
+<p>And exception handling.</p>
+
+
+<pre id="init" title="init">
+set_exception_handler(array($this,&quot;bluescreen&quot;));
+</pre>
+
+
+
+<h3>Default values</h3>
+
+<p>For now we are in devel mode permanently.</p>
+
+
+<pre id="defaults" title="defaults">
+public $develMode = true;
+public $router = null;
+public $path = '.';
+
+public function __construct(){
+    $this-&gt;router = new brickyard_router_default;
+    $this-&gt;path = dirname(__FILE__);
+}
+</pre>
+
+
+<h3>Brickyard class definition</h3>
+
+
+<pre id="class brickyard" title="class brickyard">
+class brickyard
+{
+    &lt;&lt;defaults&gt;&gt;
+
+    public function autoload($className){
+        &lt;&lt;autoload&gt;&gt;
+    }
+
+    &lt;&lt;error handling&gt;&gt;
+
+    public function bluescreen($e){
+        &lt;&lt;exception handling&gt;&gt;
+    }
+
+    public function init(){
+        &lt;&lt;init&gt;&gt;
+    }
+
+    public function run(){
+        &lt;&lt;run&gt;&gt;
+    }
+}
+</pre>
+
+
+<h1>Brickyard router</h1>
+
+<h2>Interface</h2>
+
+
+<pre id="brickyard router interface" title="brickyard router interface">
+interface brickyard_router_interface
+{
+    &lt;&lt;router interface code&gt;&gt;
+}
+</pre>
+
+
+<p>We have an interface for router. Later there will be setRouter function which will enable using of more complicated routers than default one.</p>
+
+
+<pre id="router interface code" title="router interface code">
+public function getController();
+</pre>
+
+
+<p>Gets controller name or null if not known.</p>
+
+
+<pre id="router interface code" title="router interface code">
+public function getMethod();
+</pre>
+
+
+<p>Gets method name or null if not known.</p>
+
+
+<pre id="router interface code" title="router interface code">
+public function getArgs();
+</pre>
+
+
+<p>Return an array of arguments. It can be empty if there are none arguments.</p>
+
+<h2>Default implementation</h2>
+
+<p>This is default router which works out of the box.</p>
+
+<p>Today unexplained.</p>
+
+
+<pre id="brickyard default router" title="brickyard default router">
+class brickyard_router_default
+{
+    public $controller = &quot;home&quot;;
+    public $method = &quot;index&quot;;
+    public $args = array();
+
+    function analyze()
+    {
+        $path=( isset($_SERVER[&quot;PATH_INFO&quot;]) ? explode(&quot;/&quot;,$_SERVER[&quot;PATH_INFO&quot;]) : array() );
+        if (count($path)&gt;1){$this-&gt;controller=$path[1];}
+        if (count($path)&gt;2){$this-&gt;method=$path[2];}
+        if (count($path)&gt;3){$this-&gt;args=array_slice($path,3);}
+    }
+
+    public function getController(){
+        $this-&gt;analyze();
+        return $this-&gt;controller;
+    }
+
+    public function getMethod(){
+        $this-&gt;analyze();
+        return $this-&gt;method;
+    }
+
+    public function getArgs(){
+        $this-&gt;analyze();
+        return $this-&gt;args;
+    }
+}
+</pre>
+
+
+
+
+<h1>Appendix</h1>
+
+<h2>brickyard.php file layout</h2>
+
+<p>I will put it everything to the one file. It's very practical.</p>
+
+<p>Layout of this file follows here.</p>
+
+
+<pre id="brickyard.php" title="brickyard.php">
+&lt;?php
+//
+// Brickyard framework by Severak
+//
+&lt;&lt;license&gt;&gt;
+&lt;&lt;class brickyard&gt;&gt;
+
+&lt;&lt;brickyard router interface&gt;&gt;
+
+&lt;&lt;brickyard default router&gt;&gt;
+</pre>
+
+
+<h2>License</h2>
+
+<pre id="license" title="license">
+//I am not yet decided about license. But I prefer WTFPL. 
+</pre>
+
+
+</body></html>

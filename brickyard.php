@@ -1,107 +1,148 @@
 <?php
-class brickyard{
-	public $errors=array();
-	public $controller="home";
-	public $method="index";
-	public $debug=false;
+//
+// Brickyard framework by Severak
+//
+//I am not yet decided about license. But I prefer WTFPL.
+class brickyard
+{
+	public $develMode = true;
+	public $router = null;
+	public $path = '.';
 	
 	public function __construct(){
-		$this->file_path=dirname(__FILE__);
-		$this->router=new brickyard_router();
-		$this->view=new brickyard_view();
-		$this->view->framework=$this;
+		$this->router = new brickyard_router_default;
+		$this->path = dirname(__FILE__);
 	}
 	
-	function init(){
-		set_error_handler(array($this,"error_handler"));
-		spl_autoload_register(array($this,"autoload"));
-	}
 	
-	function autoload($name){
-		$filename=$this->file_path.DIRECTORY_SEPARATOR;
-		$filename.=str_replace("_",DIRECTORY_SEPARATOR,$name);
+	public function autoload($className){
+		$filename=$this->path.DIRECTORY_SEPARATOR;
+		$filename.=str_replace("_", DIRECTORY_SEPARATOR, $className);
 		$filename.=".php";
-		include $filename;
+		if (file_exists($filename)){
+			require $filename;
+		} else {
+			throw new Exception('Class ' . $className . ' not found! Tried to find it in ' . $filename . '.');
+		}
+		
 	}
 	
 	function error_handler($errno, $errstr, $errfile, $errline ) {
+	
 		throw new ErrorException($errstr, $errno, 0, $errfile, $errline);
+	
 	}
 	
-	function bluescreen($message){
-		if ($this->debug){
+	
+	
+	public function bluescreen($e){
+		if ($this->develMode){
 			ob_clean();
 			$out="<html><head><title>error</title></head><body><h1>:-(</h1>";
-			$out.="<p>".$message."</p>";
-			$out.="<pre>"; 
-			echo $out;
-			debug_print_backtrace();
-			$out="</pre>";
+			$out.="<div>" . nl2br( $e->getMessage() ) . "</div>";
+			$out.="<pre>" . $e->getTraceAsString() . "</pre>";
 			$out.="</body></html>";
 			echo $out;
 			exit;
+			
+		} else {
+			echo 'Silent error!';
 		}
+		
 	}
-
+	
+	public function init(){
+		spl_autoload_register(array($this,"autoload"));
+		set_error_handler(array($this,"error_handler"));
+		set_exception_handler(array($this,"bluescreen"));
+		
+	}
+	
 	public function run(){
 		ob_start();
-		$route=$this->router->analyze();
-		if ($route["controller"]!=""){ $this->controller=$route["controller"]; }
-		if ($route["method"]!=""){ $this->method=$route["method"]; }
-		$controller_path=$this->file_path.DIRECTORY_SEPARATOR."c".DIRECTORY_SEPARATOR.$this->controller.".php";
-		if (file_exists($controller_path)){
-			include $controller_path;
-			$controller_instance=new $this->controller;
-			$controller_instance->framework=$this;
-			$call=array($controller_instance,$this->method);
-			if (is_callable($call)){
-				call_user_func_array($call,$route["args"]);
-			}else{
-				$this->bluescreen("Invalid method ".$this->method."!");
-			}
+		$controllerName = "c_" . $this->router->getController();
+		$methodName = $this->router->getMethod();
+		$args = $this->router->getArgs();
+		$controllerInstance = new $controllerName;
+		$controllerInstance->framework=$this;
+		$call=array($controllerInstance, $methodName);
+		if (is_callable($call)){
+			call_user_func_array($call,$args);
 		}else{
-			$this->bluescreen("Invalid controller ".$this->controller."!");
+			throw new Exception('Method ' . $methodName . ' is invalid!');
 		}
-		//var_dump($this->errors);
+		
 	}
 }
 
-class brickyard_router{
-	public $base_url="/";
+interface brickyard_router_interface
+
+{
+
+	public function getController();
+
+	public function getMethod();
+
+	public function getArgs();
+
 	
-	public function analyze(){
-		$ret=array("controller"=>"","method"=>"","args"=>array());
+
+}
+
+class brickyard_router_default
+
+{
+
+	public $controller = "home";
+
+	public $method = "index";
+
+	public $args = array();
+
+	
+
+	function analyze()
+
+	{
+
 		$path=( isset($_SERVER["PATH_INFO"]) ? explode("/",$_SERVER["PATH_INFO"]) : array() );
-		if (count($path)>1){$ret["controller"]=$path[1];}
-		if (count($path)>2){$ret["method"]=$path[2];}
-		$ret["args"]=array_slice($path,3);
-		return $ret;
-	}
-	
-	public function route($r){
-		$url=$this->base_url;
-		if (isset($r["controller"])){
-			$url.=$r["controller"];
-			if (isset($r["method"])){
-				$url.="/".$r["method"];
-				if (isset($r["args"])){
-					$url.="/".join($r["args"],"/");
-				}
-			}
-		}
-		return $url;
-	}
-}
 
-class brickyard_view{
-	public $data=array();
-	
-	public function assign($key,$value=""){
-		$this->data[$key]=$value;
+		if (count($path)>1){$this->controller=$path[1];}
+
+		if (count($path)>2){$this->method=$path[2];}
+
+		if (count($path)>3){$this->args=array_slice($path,3);}
+
 	}
+
 	
-	public function display($view){
-		extract($this->data);
-		include "v/".$view.".php";
+
+	public function getController(){
+
+		$this->analyze();
+
+		return $this->controller;
+
 	}
+
+	
+
+	public function getMethod(){
+
+		$this->analyze();
+
+		return $this->method;
+
+	}
+
+	
+
+	public function getArgs(){
+
+		$this->analyze();
+
+		return $this->args;
+
+	}
+
 }

@@ -1,0 +1,295 @@
+# Brickyard framework
+
+Yet another php framework.
+
+##Usage
+
+The usage is really simple. Minimal index.php file (an entry point and setup) look like this:
+
+Firstly you need to include framework file and get one instance.
+
+<<index.php>>==
+<?php
+require "brickyard.php";
+$f=new brickyard();
+@
+
+Init function enables autoloading and exception handling.
+
+<<index.php>>==
+$f->init();
+@
+
+Finally run function will call router and start right controller and method. 
+
+<<index.php>>==
+$f->run();
+@
+
+##How it works?
+
+Here follows brickyard core explained.
+
+###Main function
+
+It starts output control. It's useful for error pages.
+
+<<run>>==
+ob_start();
+@
+
+Get from router current controller, method and it's arguments. Note that controller has _c prefix before it's class name.
+
+<<run>>==
+$controllerName = "c_" . $this->router->getController();
+$methodName = $this->router->getMethod();
+$args = $this->router->getArgs();
+@
+
+Tries to autoload controller.
+
+<<run>>==
+$controllerInstance = new $controllerName;
+@
+
+Hand over framework instance to controller.
+<<run>>==
+$controllerInstance->framework=$this;
+@
+
+And finally call controller's method or throw Exception.
+
+<<run>>==
+$call=array($controllerInstance, $methodName);
+if (is_callable($call)){
+	call_user_func_array($call,$args);
+}else{
+	throw new Exception('Method ' . $methodName . ' is invalid!');
+}
+@
+
+###Autoloading
+
+Class name is translated to filename. By this rules:
+
+ * underscores in class names are replaced by directory separators
+ * last segment will have .php file extension
+
+<<autoload>>==
+$filename=$this->path.DIRECTORY_SEPARATOR;
+$filename.=str_replace("_", DIRECTORY_SEPARATOR, $className);
+$filename.=".php";
+@
+
+We will require it if it exists.
+
+<<autoload>>==
+if (file_exists($filename)){
+	require $filename;
+@
+
+Elseway we will throw readable exception.
+
+<<autoload>>==
+} else {
+	throw new Exception('Class ' . $className . ' not found! Tried to find it in ' . $filename . '.');
+}
+@
+
+###Exception handling
+
+If framework is in develMode, we will show debug message.
+
+<<exception handling>>==
+if ($this->develMode){
+	<<show debug message>>
+} else {
+	echo 'Silent error!';
+}
+@
+
+Before showing any debug message we will erase output.
+
+<<show debug message>>==
+ob_clean();
+@
+
+Compose this message and showit to user.
+
+<<show debug message>>==
+$out="<html><head><title>error</title></head><body><h1>:-(</h1>";
+$out.="<div>" . nl2br( $e->getMessage() ) . "</div>";
+$out.="<pre>" . $e->getTraceAsString() . "</pre>";
+$out.="</body></html>";
+echo $out;
+exit;
+@
+
+###Error handling
+
+This is simple rethrowing to ErrorException.
+
+<<error handling>>==
+function error_handler($errno, $errstr, $errfile, $errline ) {
+	throw new ErrorException($errstr, $errno, 0, $errfile, $errline);
+}
+@
+
+###Init function
+
+We register autoload.
+
+<<init>>==
+spl_autoload_register(array($this,"autoload"));
+@
+
+Error handling.
+<<init>>==
+set_error_handler(array($this,"error_handler"));
+@
+
+And exception handling.
+
+<<init>>==
+set_exception_handler(array($this,"bluescreen"));
+@
+
+
+###Default values
+
+For now we are in devel mode permanently.
+
+<<defaults>>==
+public $develMode = true;
+public $router = null;
+public $path = '.';
+
+public function __construct(){
+	$this->router = new brickyard_router_default;
+	$this->path = dirname(__FILE__);
+}
+@
+
+###Brickyard class definition
+
+<<class brickyard>>==
+class brickyard
+{
+	<<defaults>>
+	
+	public function autoload($className){
+		<<autoload>>
+	}
+	
+	<<error handling>>
+	
+	public function bluescreen($e){
+		<<exception handling>>
+	}
+	
+	public function init(){
+		<<init>>
+	}
+	
+	public function run(){
+		<<run>>
+	}
+}
+@
+
+#Brickyard router
+
+##Interface
+
+<<brickyard router interface>>==
+interface brickyard_router_interface
+{
+	<<router interface code>>
+}
+@
+
+We have an interface for router. Later there will be setRouter function which will enable using of more complicated routers than default one.
+
+<<router interface code>>==
+public function getController();
+@
+
+Gets controller name or null if not known.
+
+<<router interface code>>==
+public function getMethod();
+@
+
+Gets method name or null if not known.
+
+<<router interface code>>==
+public function getArgs();
+@
+
+Return an array of arguments. It can be empty if there are none arguments.
+
+##Default implementation
+
+This is default router which works out of the box.
+
+Today unexplained.
+
+<<brickyard default router>>==
+class brickyard_router_default
+{
+	public $controller = "home";
+	public $method = "index";
+	public $args = array();
+	
+	function analyze()
+	{
+		$path=( isset($_SERVER["PATH_INFO"]) ? explode("/",$_SERVER["PATH_INFO"]) : array() );
+		if (count($path)>1){$this->controller=$path[1];}
+		if (count($path)>2){$this->method=$path[2];}
+		if (count($path)>3){$this->args=array_slice($path,3);}
+	}
+	
+	public function getController(){
+		$this->analyze();
+		return $this->controller;
+	}
+	
+	public function getMethod(){
+		$this->analyze();
+		return $this->method;
+	}
+	
+	public function getArgs(){
+		$this->analyze();
+		return $this->args;
+	}
+}
+@
+
+
+
+#Appendix
+
+##brickyard.php file layout
+
+I will put it everything to the one file. It's very practical.
+
+Layout of this file follows here.
+
+<<brickyard.php>>==
+<?php
+//
+// Brickyard framework by Severak
+//
+<<license>>
+<<class brickyard>>
+
+<<brickyard router interface>>
+
+<<brickyard default router>>
+@
+
+##License
+<<license>>==
+//I am not yet decided about license. But I prefer WTFPL. 
+@
