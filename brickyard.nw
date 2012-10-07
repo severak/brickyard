@@ -88,7 +88,15 @@ if (file_exists($filename)){
 	require $filename;
 @
 
-Elseway we will throw readable exception.
+If class not exists in file, we will inform developer.
+
+<<autoload>>==
+	if (!class_exists($className, false)){
+		throw new Exception('Class ' . $className . ' expected to be in ' . $filename . '!');
+	}
+@
+
+If file notexists, we will inform developer too.
 
 <<autoload>>==
 } else {
@@ -114,7 +122,7 @@ Before showing any debug message we will erase output.
 ob_clean();
 @
 
-Compose this message and showit to user.
+Compose this message and show it to user.
 
 <<show debug message>>==
 $out="<html><head><title>error</title></head><body><h1>:-(</h1>";
@@ -170,12 +178,33 @@ public function __construct(){
 }
 @
 
+##Setters and getters
+
+Today we have setter and getter only for router.
+
+<<getters>>==
+public function getRouter()
+{
+	return $this->router;
+}
+@
+
+<<setters>>==
+public function setRouter($router)
+{
+	$this->router = $router;
+}
+@
+
+
 ###Brickyard class definition
 
 <<class brickyard>>==
 class brickyard
 {
 	<<defaults>>
+	<<getters>>
+	<<setters>>
 	
 	public function autoload($className){
 		<<autoload>>
@@ -197,9 +226,9 @@ class brickyard
 }
 @
 
-#Brickyard router
+##Brickyard router
 
-##Interface
+###Interface
 
 <<brickyard router interface>>==
 interface brickyard_router_interface
@@ -228,14 +257,20 @@ public function getArgs();
 
 Return an array of arguments. It can be empty if there are none arguments.
 
-##Default implementation
+<<router interface code>>==
+public function getLink($controller = null, $method = null, $args=array() );
+@
+
+Creates an link.
+
+###Default implementation
 
 This is default router which works out of the box.
 
 Today unexplained.
 
 <<brickyard default router>>==
-class brickyard_router_default
+class brickyard_router_default implements brickyard_router_interface
 {
 	public $controller = "home";
 	public $method = "index";
@@ -244,24 +279,42 @@ class brickyard_router_default
 	function analyze()
 	{
 		$path=( isset($_SERVER["PATH_INFO"]) ? explode("/",$_SERVER["PATH_INFO"]) : array() );
-		if (count($path)>1){$this->controller=$path[1];}
-		if (count($path)>2){$this->method=$path[2];}
+		if (count($path)>1 and $path[1]!=''){$this->controller=$path[1];}
+		if (count($path)>2  and $path[2]!=''){$this->method=$path[2];}
 		if (count($path)>3){$this->args=array_slice($path,3);}
 	}
 	
-	public function getController(){
+	public function getController()
+	{
 		$this->analyze();
 		return $this->controller;
 	}
 	
-	public function getMethod(){
+	public function getMethod()
+	{
 		$this->analyze();
 		return $this->method;
 	}
 	
-	public function getArgs(){
+	public function getArgs()
+	{
 		$this->analyze();
 		return $this->args;
+	}
+	
+	public function getLink($controller = null, $method = null, $args=array() )
+	{
+		$url = $_SERVER["SCRIPT_NAME"];
+		if ($controller){
+			$url .= '/' . $controller;
+			if ($method){
+				$url .= '/' . $method;
+				if (count($args)>0){
+					$url .= '/' . implode('/', $args);
+				}
+			}
+		}
+		return $url;
 	}
 }
 @

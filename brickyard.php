@@ -14,6 +14,16 @@ class brickyard
 		$this->path = dirname(__FILE__);
 	}
 	
+	public function getRouter()
+	{
+		return $this->router;
+	}
+	
+	public function setRouter($router)
+	{
+		$this->router = $router;
+	}
+	
 	
 	public function autoload($className){
 		$filename=$this->path.DIRECTORY_SEPARATOR;
@@ -21,6 +31,9 @@ class brickyard
 		$filename.=".php";
 		if (file_exists($filename)){
 			require $filename;
+			if (!class_exists($className, false)){
+				throw new Exception('Class ' . $className . ' expected to be in ' . $filename . '!');
+			}
 		} else {
 			throw new Exception('Class ' . $className . ' not found! Tried to find it in ' . $filename . '.');
 		}
@@ -85,11 +98,13 @@ interface brickyard_router_interface
 
 	public function getArgs();
 
+	public function getLink($controller = null, $method = null, $args=array() );
+
 	
 
 }
 
-class brickyard_router_default
+class brickyard_router_default implements brickyard_router_interface
 
 {
 
@@ -107,9 +122,9 @@ class brickyard_router_default
 
 		$path=( isset($_SERVER["PATH_INFO"]) ? explode("/",$_SERVER["PATH_INFO"]) : array() );
 
-		if (count($path)>1){$this->controller=$path[1];}
+		if (count($path)>1 and $path[1]!=''){$this->controller=$path[1];}
 
-		if (count($path)>2){$this->method=$path[2];}
+		if (count($path)>2  and $path[2]!=''){$this->method=$path[2];}
 
 		if (count($path)>3){$this->args=array_slice($path,3);}
 
@@ -117,7 +132,9 @@ class brickyard_router_default
 
 	
 
-	public function getController(){
+	public function getController()
+
+	{
 
 		$this->analyze();
 
@@ -127,7 +144,9 @@ class brickyard_router_default
 
 	
 
-	public function getMethod(){
+	public function getMethod()
+
+	{
 
 		$this->analyze();
 
@@ -137,11 +156,43 @@ class brickyard_router_default
 
 	
 
-	public function getArgs(){
+	public function getArgs()
+
+	{
 
 		$this->analyze();
 
 		return $this->args;
+
+	}
+
+	
+
+	public function getLink($controller = null, $method = null, $args=array() )
+
+	{
+
+		$url = $_SERVER["SCRIPT_NAME"];
+
+		if ($controller){
+
+			$url .= '/' . $controller;
+
+			if ($method){
+
+				$url .= '/' . $method;
+
+				if (count($args)>0){
+
+					$url .= '/' . implode('/', $args);
+
+				}
+
+			}
+
+		}
+
+		return $url;
 
 	}
 
