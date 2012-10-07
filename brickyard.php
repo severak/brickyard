@@ -5,69 +5,95 @@
 //I am not yet decided about license. But I prefer WTFPL.
 class brickyard
 {
-	public $develMode = true;
+	public $develMode = false;
 	public $router = null;
-	public $path = '.';
-	
+	public $libPath = '.';
+	public $indexPath = '.';
 	public function __construct(){
 		$this->router = new brickyard_router_default;
-		$this->path = dirname(__FILE__);
+		$this->libPath = dirname(__FILE__);
 	}
 	
 	public function getRouter()
 	{
 		return $this->router;
 	}
+	public function getIndexPath()
+	{
+		return $this->indexPath;
+	}
 	
 	public function setRouter($router)
 	{
 		$this->router = $router;
 	}
+	public function setIndexPath($indexFilePath)
+	{
+		$this->indexPath = dirname($indexFilePath);
+	}
 	
 	
 	public function autoload($className){
-		$filename=$this->path.DIRECTORY_SEPARATOR;
+		$filename=$this->libPath . DIRECTORY_SEPARATOR;
 		$filename.=str_replace("_", DIRECTORY_SEPARATOR, $className);
 		$filename.=".php";
 		if (file_exists($filename)){
 			require $filename;
 			if (!class_exists($className, false)){
-				throw new Exception('Class ' . $className . ' expected to be in ' . $filename . '!');
+				throw new brickyard_exception_autoload('Class ' . $className . ' expected to be in ' . $filename . '!');
 			}
 		} else {
-			throw new Exception('Class ' . $className . ' not found! Tried to find it in ' . $filename . '.');
+			throw new brickyard_exception_autoload('Class ' . $className . ' not found! Tried to find it in ' . $filename . '.');
 		}
 		
 	}
 	
-	function error_handler($errno, $errstr, $errfile, $errline ) {
-	
+	function error_handler($errno, $errstr, $errfile, $errline )
+	{
 		throw new ErrorException($errstr, $errno, 0, $errfile, $errline);
-	
+		
 	}
 	
-	
-	
-	public function bluescreen($e){
+	public function exception_handler($e)
+	{
 		if ($this->develMode){
-			ob_clean();
-			$out="<html><head><title>error</title></head><body><h1>:-(</h1>";
-			$out.="<div>" . nl2br( $e->getMessage() ) . "</div>";
-			$out.="<pre>" . $e->getTraceAsString() . "</pre>";
-			$out.="</body></html>";
-			echo $out;
-			exit;
-			
+			$this->bluescreen($e);
 		} else {
-			echo 'Silent error!';
+			if ($e instanceof brickyard_exception_404){
+				$err = 404;
+			} elseif ($e instanceof brickyard_exception_403){
+				$err = 403;
+			} else {
+				$err = 'error';
+			}	
+			
+			if (file_exists($this->libPath . DIRECTORY_SEPARATOR . $err . '.html')){
+				ob_clean();
+				echo file_get_contents($this->libPath . DIRECTORY_SEPARATOR . $err . '.html');
+			}else{
+				echo "An error occured. Also error page is missing.";
+			}
+			
 		}
+		
+	}
+	
+	public function bluescreen($e)
+	{
+		ob_clean();
+		$out="<html><head><title>error</title></head><body><h1>:-(</h1>";
+		$out.="<div>" . nl2br( $e->getMessage() ) . "</div>";
+		$out.="<pre>" . $e->getTraceAsString() . "</pre>";
+		$out.="</body></html>";
+		echo $out;
+		exit;
 		
 	}
 	
 	public function init(){
 		spl_autoload_register(array($this,"autoload"));
 		set_error_handler(array($this,"error_handler"));
-		set_exception_handler(array($this,"bluescreen"));
+		set_exception_handler(array($this,"exception_handler"));
 		
 	}
 	
@@ -76,17 +102,27 @@ class brickyard
 		$controllerName = "c_" . $this->router->getController();
 		$methodName = $this->router->getMethod();
 		$args = $this->router->getArgs();
-		$controllerInstance = new $controllerName;
+		try {
+			$controllerInstance = new $controllerName;
+		} catch(brickyard_exception_autoload $e) {
+			throw new brickyard_exception_404($e->getMessage() );
+		}
 		$controllerInstance->framework=$this;
 		$call=array($controllerInstance, $methodName);
 		if (is_callable($call)){
 			call_user_func_array($call,$args);
 		}else{
-			throw new Exception('Method ' . $methodName . ' is invalid!');
+			throw new brickyard_exception_404('Method ' . $methodName . ' is invalid!');
 		}
 		
 	}
 }
+
+class brickyard_exception_autoload extends Exception{}
+
+class brickyard_exception_404 extends Exception{}
+
+class brickyard_exception_403 extends Exception{}
 
 interface brickyard_router_interface
 

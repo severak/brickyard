@@ -2,6 +2,8 @@
 
 Yet another php framework.
 
+It aims to be simpler and smaller than others. Not suitable for enterprise.
+
 ##Usage
 
 The usage is really simple. Minimal index.php file (an entry point and setup) look like this:
@@ -49,7 +51,16 @@ $args = $this->router->getArgs();
 Tries to autoload controller.
 
 <<run>>==
-$controllerInstance = new $controllerName;
+try {
+	$controllerInstance = new $controllerName;
+@
+
+If it's fail we issue an 404 (not found) exception.
+
+<<run>>==
+} catch(brickyard_exception_autoload $e) {
+	throw new brickyard_exception_404($e->getMessage() );
+}
 @
 
 Hand over framework instance to controller.
@@ -64,7 +75,7 @@ $call=array($controllerInstance, $methodName);
 if (is_callable($call)){
 	call_user_func_array($call,$args);
 }else{
-	throw new Exception('Method ' . $methodName . ' is invalid!');
+	throw new brickyard_exception_404('Method ' . $methodName . ' is invalid!');
 }
 @
 
@@ -76,7 +87,7 @@ Class name is translated to filename. By this rules:
  * last segment will have .php file extension
 
 <<autoload>>==
-$filename=$this->path.DIRECTORY_SEPARATOR;
+$filename=$this->libPath . DIRECTORY_SEPARATOR;
 $filename.=str_replace("_", DIRECTORY_SEPARATOR, $className);
 $filename.=".php";
 @
@@ -92,7 +103,7 @@ If class not exists in file, we will inform developer.
 
 <<autoload>>==
 	if (!class_exists($className, false)){
-		throw new Exception('Class ' . $className . ' expected to be in ' . $filename . '!');
+		throw new brickyard_exception_autoload('Class ' . $className . ' expected to be in ' . $filename . '!');
 	}
 @
 
@@ -100,7 +111,7 @@ If file notexists, we will inform developer too.
 
 <<autoload>>==
 } else {
-	throw new Exception('Class ' . $className . ' not found! Tried to find it in ' . $filename . '.');
+	throw new brickyard_exception_autoload('Class ' . $className . ' not found! Tried to find it in ' . $filename . '.');
 }
 @
 
@@ -110,21 +121,49 @@ If framework is in develMode, we will show debug message.
 
 <<exception handling>>==
 if ($this->develMode){
-	<<show debug message>>
+	$this->bluescreen($e);
 } else {
-	echo 'Silent error!';
+	<<detect type of exception>>
+	<<show error message>>
 }
 @
 
+Firstly we detect type of exception.
+
+<<detect type of exception>>==
+if ($e instanceof brickyard_exception_404){
+	$err = 404;
+} elseif ($e instanceof brickyard_exception_403){
+	$err = 403;
+} else {
+	$err = 'error';
+}	
+@
+
+And then we show static html page with some innocent error message.
+
+But also in this case we need to check if error page is present.
+
+<<show error message>>==
+if (file_exists($this->libPath . DIRECTORY_SEPARATOR . $err . '.html')){
+	ob_clean();
+	echo file_get_contents($this->libPath . DIRECTORY_SEPARATOR . $err . '.html');
+}else{
+	echo "An error occured. Also error page is missing.";
+}
+@
+
+##Bluescreen
+
 Before showing any debug message we will erase output.
 
-<<show debug message>>==
+<<bluescreen>>==
 ob_clean();
 @
 
 Compose this message and show it to user.
 
-<<show debug message>>==
+<<bluescreen>>==
 $out="<html><head><title>error</title></head><body><h1>:-(</h1>";
 $out.="<div>" . nl2br( $e->getMessage() ) . "</div>";
 $out.="<pre>" . $e->getTraceAsString() . "</pre>";
@@ -138,9 +177,7 @@ exit;
 This is simple rethrowing to ErrorException.
 
 <<error handling>>==
-function error_handler($errno, $errstr, $errfile, $errline ) {
-	throw new ErrorException($errstr, $errno, 0, $errfile, $errline);
-}
+throw new ErrorException($errstr, $errno, 0, $errfile, $errline);
 @
 
 ###Init function
@@ -159,7 +196,7 @@ set_error_handler(array($this,"error_handler"));
 And exception handling.
 
 <<init>>==
-set_exception_handler(array($this,"bluescreen"));
+set_exception_handler(array($this,"exception_handler"));
 @
 
 
@@ -168,19 +205,24 @@ set_exception_handler(array($this,"bluescreen"));
 For now we are in devel mode permanently.
 
 <<defaults>>==
-public $develMode = true;
+public $develMode = false;
 public $router = null;
-public $path = '.';
+public $libPath = '.';
+public $indexPath = '.';
+@
 
+Some default instances are created in constructor.
+
+<<defaults>>==
 public function __construct(){
 	$this->router = new brickyard_router_default;
-	$this->path = dirname(__FILE__);
+	$this->libPath = dirname(__FILE__);
 }
 @
 
 ##Setters and getters
 
-Today we have setter and getter only for router.
+Today we have setter and getter or router.
 
 <<getters>>==
 public function getRouter()
@@ -193,6 +235,22 @@ public function getRouter()
 public function setRouter($router)
 {
 	$this->router = $router;
+}
+@
+
+And for indexPath.
+
+<<getters>>==
+public function getIndexPath()
+{
+	return $this->indexPath;
+}
+@
+
+<<setters>>==
+public function setIndexPath($indexFilePath)
+{
+	$this->indexPath = dirname($indexFilePath);
 }
 @
 
@@ -210,10 +268,19 @@ class brickyard
 		<<autoload>>
 	}
 	
-	<<error handling>>
+	function error_handler($errno, $errstr, $errfile, $errline )
+	{
+		<<error handling>>
+	}
 	
-	public function bluescreen($e){
+	public function exception_handler($e)
+	{
 		<<exception handling>>
+	}
+	
+	public function bluescreen($e)
+	{
+		<<bluescreen>>
 	}
 	
 	public function init(){
@@ -319,9 +386,29 @@ class brickyard_router_default implements brickyard_router_interface
 }
 @
 
-
-
 #Appendix
+
+##exceptions
+
+Brickyard provides some useful exceptions.
+
+<<exceptions>>==
+class brickyard_exception_autoload extends Exception{}
+@
+
+Throwned when something goes wrong in autoloader. 
+
+<<exceptions>>==
+class brickyard_exception_404 extends Exception{}
+@
+
+Throwned when 404 (not found) page should be shown.
+
+<<exceptions>>==
+class brickyard_exception_403 extends Exception{}
+@
+
+Throwned when 403 (forbidden) page should be shown.
 
 ##brickyard.php file layout
 
@@ -336,6 +423,8 @@ Layout of this file follows here.
 //
 <<license>>
 <<class brickyard>>
+
+<<exceptions>>
 
 <<brickyard router interface>>
 

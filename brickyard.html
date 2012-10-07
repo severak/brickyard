@@ -11,6 +11,8 @@
 
 <p>Yet another php framework.</p>
 
+<p>It aims to be simpler and smaller than others. Not suitable for enterprise.</p>
+
 <h2>Usage</h2>
 
 <p>The usage is really simple. Minimal index.php file (an entry point and setup) look like this:</p>
@@ -69,7 +71,18 @@ $args = $this-&gt;router-&gt;getArgs();
 
 
 <pre id="run" title="run">
-$controllerInstance = new $controllerName;
+try {
+    $controllerInstance = new $controllerName;
+</pre>
+
+
+<p>If it's fail we issue an 404 (not found) exception.</p>
+
+
+<pre id="run" title="run">
+} catch(brickyard_exception_autoload $e) {
+    throw new brickyard_exception_404($e-&gt;getMessage() );
+}
 </pre>
 
 
@@ -88,7 +101,7 @@ $call=array($controllerInstance, $methodName);
 if (is_callable($call)){
     call_user_func_array($call,$args);
 }else{
-    throw new Exception('Method ' . $methodName . ' is invalid!');
+    throw new brickyard_exception_404('Method ' . $methodName . ' is invalid!');
 }
 </pre>
 
@@ -104,7 +117,7 @@ if (is_callable($call)){
 
 
 <pre id="autoload" title="autoload">
-$filename=$this-&gt;path.DIRECTORY_SEPARATOR;
+$filename=$this-&gt;libPath . DIRECTORY_SEPARATOR;
 $filename.=str_replace(&quot;_&quot;, DIRECTORY_SEPARATOR, $className);
 $filename.=&quot;.php&quot;;
 </pre>
@@ -119,12 +132,22 @@ if (file_exists($filename)){
 </pre>
 
 
-<p>Elseway we will throw readable exception.</p>
+<p>If class not exists in file, we will inform developer.</p>
+
+
+<pre id="autoload" title="autoload">
+    if (!class_exists($className, false)){
+        throw new brickyard_exception_autoload('Class ' . $className . ' expected to be in ' . $filename . '!');
+    }
+</pre>
+
+
+<p>If file notexists, we will inform developer too.</p>
 
 
 <pre id="autoload" title="autoload">
 } else {
-    throw new Exception('Class ' . $className . ' not found! Tried to find it in ' . $filename . '.');
+    throw new brickyard_exception_autoload('Class ' . $className . ' not found! Tried to find it in ' . $filename . '.');
 }
 </pre>
 
@@ -136,25 +159,57 @@ if (file_exists($filename)){
 
 <pre id="exception handling" title="exception handling">
 if ($this-&gt;develMode){
-    &lt;&lt;show debug message&gt;&gt;
+    $this-&gt;bluescreen($e);
 } else {
-    echo 'Silent error!';
+    &lt;&lt;detect type of exception&gt;&gt;
+    &lt;&lt;show error message&gt;&gt;
 }
 </pre>
 
 
+<p>Firstly we detect type of exception.</p>
+
+
+<pre id="detect type of exception" title="detect type of exception">
+if ($e instanceof brickyard_exception_404){
+    $err = 404;
+} elseif ($e instanceof brickyard_exception_403){
+    $err = 403;
+} else {
+    $err = 'error';
+}   
+</pre>
+
+
+<p>And then we show static html page with some innocent error message.</p>
+
+<p>But also in this case we need to check if error page is present.</p>
+
+
+<pre id="show error message" title="show error message">
+if (file_exists($this-&gt;libPath . DIRECTORY_SEPARATOR . $err . '.html')){
+    ob_clean();
+    echo file_get_contents($this-&gt;libPath . DIRECTORY_SEPARATOR . $err . '.html');
+}else{
+    echo &quot;An error occured. Also error page is missing.&quot;;
+}
+</pre>
+
+
+<h2>Bluescreen</h2>
+
 <p>Before showing any debug message we will erase output.</p>
 
 
-<pre id="show debug message" title="show debug message">
+<pre id="bluescreen" title="bluescreen">
 ob_clean();
 </pre>
 
 
-<p>Compose this message and showit to user.</p>
+<p>Compose this message and show it to user.</p>
 
 
-<pre id="show debug message" title="show debug message">
+<pre id="bluescreen" title="bluescreen">
 $out=&quot;&lt;html&gt;&lt;head&gt;&lt;title&gt;error&lt;/title&gt;&lt;/head&gt;&lt;body&gt;&lt;h1&gt;:-(&lt;/h1&gt;&quot;;
 $out.=&quot;&lt;div&gt;&quot; . nl2br( $e-&gt;getMessage() ) . &quot;&lt;/div&gt;&quot;;
 $out.=&quot;&lt;pre&gt;&quot; . $e-&gt;getTraceAsString() . &quot;&lt;/pre&gt;&quot;;
@@ -170,9 +225,7 @@ exit;
 
 
 <pre id="error handling" title="error handling">
-function error_handler($errno, $errstr, $errfile, $errline ) {
-    throw new ErrorException($errstr, $errno, 0, $errfile, $errline);
-}
+throw new ErrorException($errstr, $errno, 0, $errfile, $errline);
 </pre>
 
 
@@ -197,7 +250,7 @@ set_error_handler(array($this,&quot;error_handler&quot;));
 
 
 <pre id="init" title="init">
-set_exception_handler(array($this,&quot;bluescreen&quot;));
+set_exception_handler(array($this,&quot;exception_handler&quot;));
 </pre>
 
 
@@ -208,15 +261,65 @@ set_exception_handler(array($this,&quot;bluescreen&quot;));
 
 
 <pre id="defaults" title="defaults">
-public $develMode = true;
+public $develMode = false;
 public $router = null;
-public $path = '.';
+public $libPath = '.';
+public $indexPath = '.';
+</pre>
 
+
+<p>Some default instances are created in constructor.</p>
+
+
+<pre id="defaults" title="defaults">
 public function __construct(){
     $this-&gt;router = new brickyard_router_default;
-    $this-&gt;path = dirname(__FILE__);
+    $this-&gt;libPath = dirname(__FILE__);
 }
 </pre>
+
+
+<h2>Setters and getters</h2>
+
+<p>Today we have setter and getter or router.</p>
+
+
+<pre id="getters" title="getters">
+public function getRouter()
+{
+    return $this-&gt;router;
+}
+</pre>
+
+
+
+<pre id="setters" title="setters">
+public function setRouter($router)
+{
+    $this-&gt;router = $router;
+}
+</pre>
+
+
+<p>And for indexPath.</p>
+
+
+<pre id="getters" title="getters">
+public function getIndexPath()
+{
+    return $this-&gt;indexPath;
+}
+</pre>
+
+
+
+<pre id="setters" title="setters">
+public function setIndexPath($indexFilePath)
+{
+    $this-&gt;indexPath = dirname($indexFilePath);
+}
+</pre>
+
 
 
 <h3>Brickyard class definition</h3>
@@ -226,15 +329,26 @@ public function __construct(){
 class brickyard
 {
     &lt;&lt;defaults&gt;&gt;
+    &lt;&lt;getters&gt;&gt;
+    &lt;&lt;setters&gt;&gt;
 
     public function autoload($className){
         &lt;&lt;autoload&gt;&gt;
     }
 
-    &lt;&lt;error handling&gt;&gt;
+    function error_handler($errno, $errstr, $errfile, $errline )
+    {
+        &lt;&lt;error handling&gt;&gt;
+    }
 
-    public function bluescreen($e){
+    public function exception_handler($e)
+    {
         &lt;&lt;exception handling&gt;&gt;
+    }
+
+    public function bluescreen($e)
+    {
+        &lt;&lt;bluescreen&gt;&gt;
     }
 
     public function init(){
@@ -248,9 +362,9 @@ class brickyard
 </pre>
 
 
-<h1>Brickyard router</h1>
+<h2>Brickyard router</h2>
 
-<h2>Interface</h2>
+<h3>Interface</h3>
 
 
 <pre id="brickyard router interface" title="brickyard router interface">
@@ -287,7 +401,15 @@ public function getArgs();
 
 <p>Return an array of arguments. It can be empty if there are none arguments.</p>
 
-<h2>Default implementation</h2>
+
+<pre id="router interface code" title="router interface code">
+public function getLink($controller = null, $method = null, $args=array() );
+</pre>
+
+
+<p>Creates an link.</p>
+
+<h3>Default implementation</h3>
 
 <p>This is default router which works out of the box.</p>
 
@@ -295,7 +417,7 @@ public function getArgs();
 
 
 <pre id="brickyard default router" title="brickyard default router">
-class brickyard_router_default
+class brickyard_router_default implements brickyard_router_interface
 {
     public $controller = &quot;home&quot;;
     public $method = &quot;index&quot;;
@@ -304,32 +426,76 @@ class brickyard_router_default
     function analyze()
     {
         $path=( isset($_SERVER[&quot;PATH_INFO&quot;]) ? explode(&quot;/&quot;,$_SERVER[&quot;PATH_INFO&quot;]) : array() );
-        if (count($path)&gt;1){$this-&gt;controller=$path[1];}
-        if (count($path)&gt;2){$this-&gt;method=$path[2];}
+        if (count($path)&gt;1 and $path[1]!=''){$this-&gt;controller=$path[1];}
+        if (count($path)&gt;2  and $path[2]!=''){$this-&gt;method=$path[2];}
         if (count($path)&gt;3){$this-&gt;args=array_slice($path,3);}
     }
 
-    public function getController(){
+    public function getController()
+    {
         $this-&gt;analyze();
         return $this-&gt;controller;
     }
 
-    public function getMethod(){
+    public function getMethod()
+    {
         $this-&gt;analyze();
         return $this-&gt;method;
     }
 
-    public function getArgs(){
+    public function getArgs()
+    {
         $this-&gt;analyze();
         return $this-&gt;args;
+    }
+
+    public function getLink($controller = null, $method = null, $args=array() )
+    {
+        $url = $_SERVER[&quot;SCRIPT_NAME&quot;];
+        if ($controller){
+            $url .= '/' . $controller;
+            if ($method){
+                $url .= '/' . $method;
+                if (count($args)&gt;0){
+                    $url .= '/' . implode('/', $args);
+                }
+            }
+        }
+        return $url;
     }
 }
 </pre>
 
 
-
-
 <h1>Appendix</h1>
+
+<h2>exceptions</h2>
+
+<p>Brickyard provides some useful exceptions.</p>
+
+
+<pre id="exceptions" title="exceptions">
+class brickyard_exception_autoload extends Exception{}
+</pre>
+
+
+<p>Throwned when something goes wrong in autoloader. </p>
+
+
+<pre id="exceptions" title="exceptions">
+class brickyard_exception_404 extends Exception{}
+</pre>
+
+
+<p>Throwned when 404 (not found) page should be shown.</p>
+
+
+<pre id="exceptions" title="exceptions">
+class brickyard_exception_403 extends Exception{}
+</pre>
+
+
+<p>Throwned when 403 (forbidden) page should be shown.</p>
 
 <h2>brickyard.php file layout</h2>
 
@@ -345,6 +511,8 @@ class brickyard_router_default
 //
 &lt;&lt;license&gt;&gt;
 &lt;&lt;class brickyard&gt;&gt;
+
+&lt;&lt;exceptions&gt;&gt;
 
 &lt;&lt;brickyard router interface&gt;&gt;
 

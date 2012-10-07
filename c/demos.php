@@ -11,7 +11,6 @@ class c_demos
 	{
 		echo '<h1>Demos</h1>';
 		echo '<ul>';
-		$router = $this->framework->getRouter();
 		echo '<li>' . $this->_getLink('exception handling', 'exceptions') . '</li>';
 		echo '<li>' . $this->_getLink('source code brownser', 'source', array('c_demos', 'source')) . '</li>';
 		echo '<li>' . $this->_getLink('this controller source', 'source', array('c_demos')) . '</li>';
