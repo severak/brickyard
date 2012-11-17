@@ -12,6 +12,7 @@ class c_demos
 		echo '<h1>Demos</h1>';
 		echo '<ul>';
 		echo '<li>' . $this->_getLink('exception handling', 'exceptions') . '</li>';
+		echo '<li>' . $this->_getLink('view demo', 'view') . '</li>';
 		echo '<li>' . $this->_getLink('source code brownser', 'source', array('c_demos', 'source')) . '</li>';
 		echo '<li>' . $this->_getLink('this controller source', 'source', array('c_demos')) . '</li>';
 		echo '</ul>';
@@ -49,5 +50,17 @@ class c_demos
 		} else {
 			throw new Exception("Class " . $controller . " is unreachable for source brownser.");
 		}
+	}
+	
+	function view()
+	{
+		echo $this->framework->getView()->show("test", array('a'=>'A'));
+	}
+	
+	function __destruct()
+	{
+		echo '<hr>';
+		$method = $this->framework->getRouter()->getMethod();
+		echo 'see ' . $this->_getLink('source code', 'source', array('c_demos', $method));
 	}
 }

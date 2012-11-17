@@ -9,9 +9,11 @@
 
 <h1>Brickyard framework</h1>
 
-<p>Yet another php framework.</p>
+<p>Because reinventing the wheel is fun.</p>
 
 <p>It aims to be simpler and smaller than others. Not suitable for enterprise.</p>
+
+<p>Note that source of this documentation is source of framework itself. </p>
 
 <h2>Usage</h2>
 
@@ -57,7 +59,7 @@ ob_start();
 </pre>
 
 
-<p>Get from router current controller, method and it's arguments. Note that controller has _c prefix before it's class name.</p>
+<p>Get from router current controller, method and it's arguments. Note that controller has <code>c_</code> prefix before it's class name.</p>
 
 
 <pre id="run" title="run">
@@ -158,7 +160,7 @@ if (file_exists($filename)){
 
 
 <pre id="exception handling" title="exception handling">
-if ($this-&gt;develMode){
+if ($this-&gt;inDevelMode){
     $this-&gt;bluescreen($e);
 } else {
     &lt;&lt;detect type of exception&gt;&gt;
@@ -190,13 +192,14 @@ if ($e instanceof brickyard_exception_404){
 if (file_exists($this-&gt;libPath . DIRECTORY_SEPARATOR . $err . '.html')){
     ob_clean();
     echo file_get_contents($this-&gt;libPath . DIRECTORY_SEPARATOR . $err . '.html');
+    exit; //to prevent more errors
 }else{
     echo &quot;An error occured. Also error page is missing.&quot;;
 }
 </pre>
 
 
-<h2>Bluescreen</h2>
+<h3>Bluescreen</h3>
 
 <p>Before showing any debug message we will erase output.</p>
 
@@ -254,14 +257,13 @@ set_exception_handler(array($this,&quot;exception_handler&quot;));
 </pre>
 
 
-
 <h3>Default values</h3>
 
-<p>For now we are in devel mode permanently.</p>
+<p>Here follows some setting of framework.</p>
 
 
 <pre id="defaults" title="defaults">
-public $develMode = false;
+public $inDevelMode = false;
 public $router = null;
 public $libPath = '.';
 public $indexPath = '.';
@@ -275,13 +277,14 @@ public $indexPath = '.';
 public function __construct(){
     $this-&gt;router = new brickyard_router_default;
     $this-&gt;libPath = dirname(__FILE__);
+    $this-&gt;view = new brickyard_view_default(dirname(__FILE__) . DIRECTORY_SEPARATOR . &quot;tpl&quot;);
 }
 </pre>
 
 
-<h2>Setters and getters</h2>
+<h3>Setters and getters</h3>
 
-<p>Today we have setter and getter or router.</p>
+<p>Today we have setter and getter for router.</p>
 
 
 <pre id="getters" title="getters">
@@ -294,11 +297,32 @@ public function getRouter()
 
 
 <pre id="setters" title="setters">
-public function setRouter($router)
+public function setRouter(brickyard_router_interface $router)
 {
     $this-&gt;router = $router;
 }
 </pre>
+
+
+<p>For views.</p>
+
+
+<pre id="getters" title="getters">
+public function getView()
+{
+    return $this-&gt;view;
+}
+</pre>
+
+
+
+<pre id="setters" title="setters">
+public function setView(brickyard_view_interface $view)
+{
+    $this-&gt;view = $view;
+}
+</pre>
+
 
 
 <p>And for indexPath.</p>
@@ -319,7 +343,6 @@ public function setIndexPath($indexFilePath)
     $this-&gt;indexPath = dirname($indexFilePath);
 }
 </pre>
-
 
 
 <h3>Brickyard class definition</h3>
@@ -375,7 +398,7 @@ interface brickyard_router_interface
 </pre>
 
 
-<p>We have an interface for router. Later there will be setRouter function which will enable using of more complicated routers than default one.</p>
+<p>We have an interface for router so default router can be changed to more complicated one.</p>
 
 
 <pre id="router interface code" title="router interface code">
@@ -467,6 +490,57 @@ class brickyard_router_default implements brickyard_router_interface
 </pre>
 
 
+<h2>Brickyard view</h2>
+
+<p>In brickyard framework view is mean as template filler.</p>
+
+<h2>Interface</h2>
+
+
+<pre id="brickyard view interface" title="brickyard view interface">
+interface brickyard_view_interface
+{
+    public function show($templateName, array $data);
+}
+</pre>
+
+
+<p>Interface of view is very simple. It offers only one function called <code>show</code> which accepts template name as first parameter and associative array as second parameter. This function returns filled template.</p>
+
+<h2>Implementation</h2>
+
+<p>(Unexplained yet)</p>
+
+
+<pre id="brickyard default view" title="brickyard default view">
+class brickyard_view_default
+{
+    private $tplPath=&quot;tpl&quot;;
+
+    function __construct($tplPath)
+    {
+        $this-&gt;tplPath = $tplPath;
+    }
+
+    public function show($tplName, array $data)
+    {
+        $tplFile = $this-&gt;tplPath . DIRECTORY_SEPARATOR . $tplName . &quot;.php&quot;;
+        if (file_exists($tplFile)) {
+            $data['view'] = $this;
+            extract($data, EXTR_SKIP);
+            ob_start();
+            include $tplFile;
+            $output = ob_get_contents();
+            ob_end_clean();
+            return $output;
+        } else {
+            throw new Exception('Template '.$tplName.' not found in file '.$tplFile);
+        }
+    }
+}
+</pre>
+
+
 <h1>Appendix</h1>
 
 <h2>exceptions</h2>
@@ -517,6 +591,10 @@ class brickyard_exception_403 extends Exception{}
 &lt;&lt;brickyard router interface&gt;&gt;
 
 &lt;&lt;brickyard default router&gt;&gt;
+
+&lt;&lt;brickyard view interface&gt;&gt;
+
+&lt;&lt;brickyard default view&gt;&gt;
 </pre>
 
 

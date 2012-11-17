@@ -5,27 +5,36 @@
 //I am not yet decided about license. But I prefer WTFPL.
 class brickyard
 {
-	public $develMode = false;
+	public $inDevelMode = false;
 	public $router = null;
 	public $libPath = '.';
 	public $indexPath = '.';
 	public function __construct(){
 		$this->router = new brickyard_router_default;
 		$this->libPath = dirname(__FILE__);
+		$this->view = new brickyard_view_default(dirname(__FILE__) . DIRECTORY_SEPARATOR . "tpl");
 	}
 	
 	public function getRouter()
 	{
 		return $this->router;
 	}
+	public function getView()
+	{
+		return $this->view;
+	}
 	public function getIndexPath()
 	{
 		return $this->indexPath;
 	}
 	
-	public function setRouter($router)
+	public function setRouter(brickyard_router_interface $router)
 	{
 		$this->router = $router;
+	}
+	public function setView(brickyard_view_interface $view)
+	{
+		$this->view = $view;
 	}
 	public function setIndexPath($indexFilePath)
 	{
@@ -56,7 +65,7 @@ class brickyard
 	
 	public function exception_handler($e)
 	{
-		if ($this->develMode){
+		if ($this->inDevelMode){
 			$this->bluescreen($e);
 		} else {
 			if ($e instanceof brickyard_exception_404){
@@ -70,6 +79,7 @@ class brickyard
 			if (file_exists($this->libPath . DIRECTORY_SEPARATOR . $err . '.html')){
 				ob_clean();
 				echo file_get_contents($this->libPath . DIRECTORY_SEPARATOR . $err . '.html');
+				exit; //to prevent more errors
 			}else{
 				echo "An error occured. Also error page is missing.";
 			}
@@ -229,6 +239,64 @@ class brickyard_router_default implements brickyard_router_interface
 		}
 
 		return $url;
+
+	}
+
+}
+
+interface brickyard_view_interface
+
+{
+
+	public function show($templateName, array $data);
+
+}
+
+class brickyard_view_default
+
+{
+
+	private $tplPath="tpl";
+
+	
+
+	function __construct($tplPath)
+
+	{
+
+		$this->tplPath = $tplPath;
+
+	}
+
+	
+
+	public function show($tplName, array $data)
+
+	{
+
+		$tplFile = $this->tplPath . DIRECTORY_SEPARATOR . $tplName . ".php";
+
+		if (file_exists($tplFile)) {
+
+			$data['view'] = $this;
+
+			extract($data, EXTR_SKIP);
+
+			ob_start();
+
+			include $tplFile;
+
+			$output = ob_get_contents();
+
+			ob_end_clean();
+
+			return $output;
+
+		} else {
+
+			throw new Exception('Template '.$tplName.' not found in file '.$tplFile);
+
+		}
 
 	}
 
