@@ -7,10 +7,13 @@ class brickyard
 {
 	public $inDevelMode = false;
 	public $router = null;
+	public $view = null;
+	public $logger = null;
 	public $libPath = '.';
 	public $indexPath = '.';
 	public function __construct(){
 		$this->router = new brickyard_router_default;
+		$this->logger = new brickyard_logger_null;
 		$this->libPath = dirname(__FILE__);
 		$this->view = new brickyard_view_default(dirname(__FILE__) . DIRECTORY_SEPARATOR . "tpl");
 	}
@@ -22,6 +25,10 @@ class brickyard
 	public function getView()
 	{
 		return $this->view;
+	}
+	public function getLogger()
+	{
+		return $this->logger;
 	}
 	public function getIndexPath()
 	{
@@ -35,6 +42,10 @@ class brickyard
 	public function setView(brickyard_view_interface $view)
 	{
 		$this->view = $view;
+	}
+	public function setLogger(brickyard_logger_interface $logger)
+	{
+		$this->logger = $logger;
 	}
 	public function setIndexPath($indexFilePath)
 	{
@@ -68,6 +79,8 @@ class brickyard
 		if ($this->inDevelMode){
 			$this->bluescreen($e);
 		} else {
+			$this->logger->logException($e);
+			
 			if ($e instanceof brickyard_exception_404){
 				$err = 404;
 			} elseif ($e instanceof brickyard_exception_403){
@@ -252,7 +265,7 @@ interface brickyard_view_interface
 
 }
 
-class brickyard_view_default
+class brickyard_view_default implements brickyard_view_interface
 
 {
 
@@ -297,6 +310,58 @@ class brickyard_view_default
 			throw new Exception('Template '.$tplName.' not found in file '.$tplFile);
 
 		}
+
+	}
+
+}
+
+interface brickyard_logger_interface
+
+{
+
+	public function logException(Exception $e);
+
+}
+
+class brickyard_logger_null implements brickyard_logger_interface
+
+{
+
+	function logException(Exception $e) {}
+
+}
+
+class brickyard_logger_file implements brickyard_logger_interface
+
+{
+
+	private $logFileName="log.txt";
+
+
+
+	function __construct($logFileName)
+
+	{
+
+		$this->logFileName = $logFileName;
+
+	}
+
+	
+
+	function logException(Exception $e)
+
+	{
+
+		$logged = '== ' . date('Y-m-d H:i:s') . PHP_EOL .
+
+		$e->getMessage() . PHP_EOL .
+
+		$e->getFile() . ':' . $e->getLine() . PHP_EOL .
+
+		$e->getTraceAsString() . PHP_EOL;
+
+		file_put_contents($this->logFileName, $logged, FILE_APPEND);
 
 	}
 

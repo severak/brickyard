@@ -125,12 +125,19 @@ If framework is in develMode, we will show debug message.
 if ($this->inDevelMode){
 	$this->bluescreen($e);
 } else {
+	<<log exception>>
 	<<detect type of exception>>
 	<<show error message>>
 }
 @
 
-Firstly we detect type of exception.
+Firstly we log this exception.
+
+<<log exception>>==
+$this->logger->logException($e);
+@
+
+Than we detect type of exception.
 
 <<detect type of exception>>==
 if ($e instanceof brickyard_exception_404){
@@ -209,6 +216,8 @@ Here follows some setting of framework.
 <<defaults>>==
 public $inDevelMode = false;
 public $router = null;
+public $view = null;
+public $logger = null;
 public $libPath = '.';
 public $indexPath = '.';
 @
@@ -218,6 +227,7 @@ Some default instances are created in constructor.
 <<defaults>>==
 public function __construct(){
 	$this->router = new brickyard_router_default;
+	$this->logger = new brickyard_logger_null;
 	$this->libPath = dirname(__FILE__);
 	$this->view = new brickyard_view_default(dirname(__FILE__) . DIRECTORY_SEPARATOR . "tpl");
 }
@@ -254,6 +264,22 @@ public function getView()
 public function setView(brickyard_view_interface $view)
 {
 	$this->view = $view;
+}
+@
+
+For loggers.
+
+<<getters>>==
+public function getLogger()
+{
+	return $this->logger;
+}
+@
+
+<<setters>>==
+public function setLogger(brickyard_logger_interface $logger)
+{
+	$this->logger = $logger;
 }
 @
 
@@ -425,7 +451,7 @@ Interface of view is very simple. It offers only one function called `show` whic
 (Unexplained yet)
 
 <<brickyard default view>>==
-class brickyard_view_default
+class brickyard_view_default implements brickyard_view_interface
 {
 	private $tplPath="tpl";
 	
@@ -448,6 +474,55 @@ class brickyard_view_default
 		} else {
 			throw new Exception('Template '.$tplName.' not found in file '.$tplFile);
 		}
+	}
+}
+@
+
+##Brickyard logger
+
+###Interface
+
+Provides method to log exceptions.
+
+<<brickyard logger interface>>==
+interface brickyard_logger_interface
+{
+	public function logException(Exception $e);
+}
+@
+
+###Null implementation
+
+Default logger instance is empty.
+
+<<brickyard logger null>>==
+class brickyard_logger_null implements brickyard_logger_interface
+{
+	function logException(Exception $e) {}
+}
+@
+
+###File implementation
+
+This is the first usable one.
+
+<<brickyard logger file>>==
+class brickyard_logger_file implements brickyard_logger_interface
+{
+	private $logFileName="log.txt";
+
+	function __construct($logFileName)
+	{
+		$this->logFileName = $logFileName;
+	}
+	
+	function logException(Exception $e)
+	{
+		$logged = '== ' . date('Y-m-d H:i:s') . PHP_EOL .
+		$e->getMessage() . PHP_EOL .
+		$e->getFile() . ':' . $e->getLine() . PHP_EOL .
+		$e->getTraceAsString() . PHP_EOL;
+		file_put_contents($this->logFileName, $logged, FILE_APPEND);
 	}
 }
 @
@@ -499,6 +574,12 @@ Layout of this file follows here.
 <<brickyard view interface>>
 
 <<brickyard default view>>
+
+<<brickyard logger interface>>
+
+<<brickyard logger null>>
+
+<<brickyard logger file>>
 @
 
 ##License

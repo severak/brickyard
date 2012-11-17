@@ -163,13 +163,22 @@ if (file_exists($filename)){
 if ($this-&gt;inDevelMode){
     $this-&gt;bluescreen($e);
 } else {
+    &lt;&lt;log exception&gt;&gt;
     &lt;&lt;detect type of exception&gt;&gt;
     &lt;&lt;show error message&gt;&gt;
 }
 </pre>
 
 
-<p>Firstly we detect type of exception.</p>
+<p>Firstly we log this exception.</p>
+
+
+<pre id="log exception" title="log exception">
+$this-&gt;logger-&gt;logException($e);
+</pre>
+
+
+<p>Than we detect type of exception.</p>
 
 
 <pre id="detect type of exception" title="detect type of exception">
@@ -265,6 +274,8 @@ set_exception_handler(array($this,&quot;exception_handler&quot;));
 <pre id="defaults" title="defaults">
 public $inDevelMode = false;
 public $router = null;
+public $view = null;
+public $logger = null;
 public $libPath = '.';
 public $indexPath = '.';
 </pre>
@@ -276,6 +287,7 @@ public $indexPath = '.';
 <pre id="defaults" title="defaults">
 public function __construct(){
     $this-&gt;router = new brickyard_router_default;
+    $this-&gt;logger = new brickyard_logger_null;
     $this-&gt;libPath = dirname(__FILE__);
     $this-&gt;view = new brickyard_view_default(dirname(__FILE__) . DIRECTORY_SEPARATOR . &quot;tpl&quot;);
 }
@@ -320,6 +332,26 @@ public function getView()
 public function setView(brickyard_view_interface $view)
 {
     $this-&gt;view = $view;
+}
+</pre>
+
+
+<p>For loggers.</p>
+
+
+<pre id="getters" title="getters">
+public function getLogger()
+{
+    return $this-&gt;logger;
+}
+</pre>
+
+
+
+<pre id="setters" title="setters">
+public function setLogger(brickyard_logger_interface $logger)
+{
+    $this-&gt;logger = $logger;
 }
 </pre>
 
@@ -513,7 +545,7 @@ interface brickyard_view_interface
 
 
 <pre id="brickyard default view" title="brickyard default view">
-class brickyard_view_default
+class brickyard_view_default implements brickyard_view_interface
 {
     private $tplPath=&quot;tpl&quot;;
 
@@ -536,6 +568,61 @@ class brickyard_view_default
         } else {
             throw new Exception('Template '.$tplName.' not found in file '.$tplFile);
         }
+    }
+}
+</pre>
+
+
+<h2>Brickyard logger</h2>
+
+<h3>Interface</h3>
+
+<p>Provides method to log exceptions.</p>
+
+
+<pre id="brickyard logger interface" title="brickyard logger interface">
+interface brickyard_logger_interface
+{
+    public function logException(Exception $e);
+}
+</pre>
+
+
+<h3>Null implementation</h3>
+
+<p>Default logger instance is empty.</p>
+
+
+<pre id="brickyard logger null" title="brickyard logger null">
+class brickyard_logger_null implements brickyard_logger_interface
+{
+    function logException(Exception $e) {}
+}
+</pre>
+
+
+<h3>File implementation</h3>
+
+<p>This is the first usable one.</p>
+
+
+<pre id="brickyard logger file" title="brickyard logger file">
+class brickyard_logger_file implements brickyard_logger_interface
+{
+    private $logFileName=&quot;log.txt&quot;;
+
+    function __construct($logFileName)
+    {
+        $this-&gt;logFileName = $logFileName;
+    }
+
+    function logException(Exception $e)
+    {
+        $logged = '== ' . date('Y-m-d H:i:s') . PHP_EOL .
+        $e-&gt;getMessage() . PHP_EOL .
+        $e-&gt;getFile() . ':' . $e-&gt;getLine() . PHP_EOL .
+        $e-&gt;getTraceAsString() . PHP_EOL;
+        file_put_contents($this-&gt;logFileName, $logged, FILE_APPEND);
     }
 }
 </pre>
@@ -595,6 +682,12 @@ class brickyard_exception_403 extends Exception{}
 &lt;&lt;brickyard view interface&gt;&gt;
 
 &lt;&lt;brickyard default view&gt;&gt;
+
+&lt;&lt;brickyard logger interface&gt;&gt;
+
+&lt;&lt;brickyard logger null&gt;&gt;
+
+&lt;&lt;brickyard logger file&gt;&gt;
 </pre>
 
 
