@@ -42,7 +42,7 @@ class model_wiki
 		if ($newText != $oldText) {
 			$history = $this->getHistory($page);
 			$revision = count($history);
-			if (file_put_contents($this->_pageFN($page), $newText)) {
+			if (file_put_contents($this->_pageFN($page), $newText) ) {
 				file_put_contents($this->_revFN($page, $revision), $newText);
 				$history[] = array(
 					'date'=>date('Y-m-d'),
@@ -58,7 +58,7 @@ class model_wiki
 	function getHistory($page)
 	{
 		if (file_exists($this->_logFN($page))) {
-			return json_decode(file_get_contents($this->_logFN($page)));
+			return json_decode(file_get_contents($this->_logFN($page)), true);
 		} else {
 			return array();
 		}

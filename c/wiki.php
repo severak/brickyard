@@ -53,6 +53,15 @@ class c_wiki extends brick_c
 		$this->_showContent($editor);
 	}
 	
+	function history($page="index")
+	{
+		$m=$this->_model();
+		$history = $m->getHistory($page);
+		$content = $this->_show('wiki_history', array('history'=>$history));
+		$this->_setMenu('history', $page);
+		$this->_showContent($content);
+	}
+	
 	private function _showContent($content)
 	{
 		echo $this->_show(
@@ -71,10 +80,15 @@ class c_wiki extends brick_c
 	private function _setMenu($mode, $page)
 	{
 		$out='<div class="pull-right btn-group">';
-		if ($mode=="show") {
-			$out.='<a href="'.$this->_getLink('wiki', 'edit', array($page)).'" class="btn"><i class="icon-pencil"></i></a>';
+		if ($mode!="show") {
+			$out.='<a href="'.$this->_getLink('wiki', 'show', array($page)).'" class="btn" title="show"><i class="icon-eye-open"></i></a>';
 		}
-		$out.='<a href="'.$this->_getLink('wiki', 'history', array($page)).'" class="btn" title="history"><i class="icon-film"></i></a>';
+		if ($mode!="history") {
+			$out.='<a href="'.$this->_getLink('wiki', 'history', array($page)).'" class="btn" title="history"><i class="icon-film"></i></a>';
+		}
+		if ($mode!="edit") {
+			$out.='<a href="'.$this->_getLink('wiki', 'edit', array($page)).'" class="btn" title="edit"><i class="icon-pencil"></i></a>';
+		}
 		$out.='</div>';
 		$this->menu = $out;
 	}
