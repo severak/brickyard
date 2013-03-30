@@ -175,6 +175,7 @@ Compose this message and show it to user.
 
 <<bluescreen>>==
 $out="<html><head><title>error</title></head><body><h1>:-(</h1>";
+$out.="<div>at " . $e->getFile() . ':' . $e->getLine() . "</div>";
 $out.="<div>" . nl2br( $e->getMessage() ) . "</div>";
 $out.="<pre>" . $e->getTraceAsString() . "</pre>";
 $out.="</body></html>";
@@ -190,6 +191,18 @@ This is simple rethrowing to ErrorException.
 throw new ErrorException($errstr, $errno, 0, $errfile, $errline);
 @
 
+###Fatal handling
+
+Fatals are errors too.
+
+<<fatal handling>>==
+$error = error_get_last();
+if ($error['type'] & (E_ERROR | E_CORE_ERROR | E_COMPILE_ERROR | E_PARSE)) {
+	$fatal = new ErrorException($error['message'], $error['type'], 0, $error['file'], $error['line']);
+	$this->exception_handler($fatal);
+}
+@
+
 ###Init function
 
 We register autoload.
@@ -201,6 +214,7 @@ spl_autoload_register(array($this,"autoload"));
 Error handling.
 <<init>>==
 set_error_handler(array($this,"error_handler"));
+register_shutdown_function(array($this, "shutdown_handler"));
 @
 
 And exception handling.
@@ -321,6 +335,11 @@ class brickyard
 	public function exception_handler($e)
 	{
 		<<exception handling>>
+	}
+	
+	public function shutdown_handler()
+	{
+		<<fatal handling>>
 	}
 	
 	public function bluescreen($e)

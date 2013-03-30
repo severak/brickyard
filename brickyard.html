@@ -223,6 +223,7 @@ ob_clean();
 
 <pre id="bluescreen" title="bluescreen">
 $out=&quot;&lt;html&gt;&lt;head&gt;&lt;title&gt;error&lt;/title&gt;&lt;/head&gt;&lt;body&gt;&lt;h1&gt;:-(&lt;/h1&gt;&quot;;
+$out.=&quot;&lt;div&gt;at &quot; . $e-&gt;getFile() . ':' . $e-&gt;getLine() . &quot;&lt;/div&gt;&quot;;
 $out.=&quot;&lt;div&gt;&quot; . nl2br( $e-&gt;getMessage() ) . &quot;&lt;/div&gt;&quot;;
 $out.=&quot;&lt;pre&gt;&quot; . $e-&gt;getTraceAsString() . &quot;&lt;/pre&gt;&quot;;
 $out.=&quot;&lt;/body&gt;&lt;/html&gt;&quot;;
@@ -241,6 +242,20 @@ throw new ErrorException($errstr, $errno, 0, $errfile, $errline);
 </pre>
 
 
+<h3>Fatal handling</h3>
+
+<p>Fatals are errors too.</p>
+
+
+<pre id="fatal handling" title="fatal handling">
+$error = error_get_last();
+if ($error['type'] &amp; (E_ERROR | E_CORE_ERROR | E_COMPILE_ERROR | E_PARSE)) {
+    $fatal = new ErrorException($error['message'], $error['type'], 0, $error['file'], $error['line']);
+    $this-&gt;exception_handler($fatal);
+}
+</pre>
+
+
 <h3>Init function</h3>
 
 <p>We register autoload.</p>
@@ -255,6 +270,7 @@ spl_autoload_register(array($this,&quot;autoload&quot;));
 
 <pre id="init" title="init">
 set_error_handler(array($this,&quot;error_handler&quot;));
+register_shutdown_function(array($this, &quot;shutdown_handler&quot;));
 </pre>
 
 
@@ -399,6 +415,11 @@ class brickyard
     public function exception_handler($e)
     {
         &lt;&lt;exception handling&gt;&gt;
+    }
+
+    public function shutdown_handler()
+    {
+        &lt;&lt;fatal handling&gt;&gt;
     }
 
     public function bluescreen($e)

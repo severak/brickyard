@@ -101,10 +101,21 @@ class brickyard
 		
 	}
 	
+	public function shutdown_handler()
+	{
+		$error = error_get_last();
+		if ($error['type'] & (E_ERROR | E_CORE_ERROR | E_COMPILE_ERROR | E_PARSE)) {
+			$fatal = new ErrorException($error['message'], $error['type'], 0, $error['file'], $error['line']);
+			$this->exception_handler($fatal);
+		}
+		
+	}
+	
 	public function bluescreen($e)
 	{
 		ob_clean();
 		$out="<html><head><title>error</title></head><body><h1>:-(</h1>";
+		$out.="<div>at " . $e->getFile() . ':' . $e->getLine() . "</div>";
 		$out.="<div>" . nl2br( $e->getMessage() ) . "</div>";
 		$out.="<pre>" . $e->getTraceAsString() . "</pre>";
 		$out.="</body></html>";
@@ -116,6 +127,7 @@ class brickyard
 	public function init(){
 		spl_autoload_register(array($this,"autoload"));
 		set_error_handler(array($this,"error_handler"));
+		register_shutdown_function(array($this, "shutdown_handler"));
 		set_exception_handler(array($this,"exception_handler"));
 		
 	}
