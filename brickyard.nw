@@ -234,6 +234,8 @@ public $view = null;
 public $logger = null;
 public $libPath = '.';
 public $indexPath = '.';
+protected $_service = array();
+protected $_serviceIsFactory = array();
 @
 
 Some default instances are created in constructor.
@@ -311,6 +313,25 @@ public function getIndexPath()
 public function setIndexPath($indexFilePath)
 {
 	$this->indexPath = dirname($indexFilePath);
+}
+@
+
+###Dependency injection container
+
+Today unexplained.
+
+<<dic>>==
+public function getService($name)
+{
+	if (isset($this->_service[$name])) {
+		if (isset($this->_serviceIsFactory[$name])) {
+			return call_user_func($this->_service[$name]);
+		} else {
+			return $this->_service[$name];
+		}
+	} else {
+		throw new Exception(sprintf("Service '%s' not found!", $name));
+	}
 }
 @
 
