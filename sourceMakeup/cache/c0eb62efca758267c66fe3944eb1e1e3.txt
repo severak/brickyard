@@ -1,0 +1,780 @@
+<tr class="docu"><td class="comment"><h1 id="brickyard-framework">Brickyard framework</h1>
+
+<p>Because reinventing the wheel is fun.</p>
+
+<p>It aims to be simpler and smaller than others. Not suitable for enterprise.</p>
+
+<p>Note that source of this documentation is source of framework itself.</p>
+
+<h2 id="usage">Usage</h2>
+
+<p>The usage is really simple. Minimal index.php file (an entry point and setup) look like this:</p>
+
+<p>Firstly you need to include framework file and get one instance.</p>
+
+<pre><code>&lt;?php
+require "brickyard.php";
+$f=new brickyard();
+</code></pre>
+
+<p>Init function enables autoloading and exception handling.</p>
+
+<pre><code>$f-&gt;init();
+</code></pre>
+
+<p>Finally run function will call router and start right controller and method.</p>
+
+<pre><code>$f-&gt;run();
+</code></pre>
+</td><td class="code"><pre class="linenumbers"></pre><pre class="prettyprint"></pre></td></tr><tr class="docu"><td class="comment"><h2 id="how-it-works">How it works?</h2>
+
+<p>Here follows brickyard core explained.</p>
+</td><td class="code"><pre class="linenumbers">33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148
+149
+150
+151
+152
+153
+154
+155
+156
+157
+158
+159
+160
+161
+162
+163
+164
+165
+166
+167
+168
+169
+170
+171
+172
+173
+174
+175
+176
+177
+178
+179
+180
+181
+182
+183
+184
+185
+186
+187
+188
+189
+190
+191
+192
+193
+194
+195
+196
+197
+198
+199
+200
+201
+202
+203
+204
+205
+206
+207
+208
+209
+210
+211
+212
+213
+214
+215
+216
+217
+218
+219
+220
+221
+222
+223
+224
+225
+226
+227
+228
+229
+230
+231
+232
+233
+234
+235
+236
+237
+238
+239
+240
+241
+242
+243
+244
+245
+246
+247
+248
+249
+250
+251
+252
+253
+254
+255
+256
+257
+258
+259
+260
+261
+262
+263
+264
+265
+266
+267
+268
+269
+270
+271
+272
+273
+274
+275
+276
+277
+278
+279
+280
+281
+282
+283
+284
+285
+286
+287
+288
+289
+290
+291
+292
+293
+294
+295
+296
+297
+298
+299
+300
+301
+302
+303
+304
+305
+306
+307
+308
+309
+310
+311
+312
+313
+314
+315
+316
+317
+318
+319
+320
+321
+322
+323
+324
+325
+326
+327
+328
+329
+330
+331
+332
+333
+334
+335
+336
+337
+338
+339
+340
+341
+342
+343
+344
+345
+346
+347
+348
+349
+350
+351
+352
+353
+354
+355
+356
+357
+358
+359
+360
+361
+362
+363
+364
+365
+366
+367
+368
+369
+370
+371
+372
+373
+374
+375
+376
+377
+378
+379
+380
+381
+382
+383
+384
+385
+386
+387
+388
+389
+390
+391
+392
+393
+394
+395
+396
+397
+398
+399
+400
+401
+402
+403
+404
+405
+406
+407</pre><pre class="prettyprint">class brickyard
+{
+    public $inDevelMode = false;
+    public $router = null;
+    public $view = null;
+    public $logger = null;
+    public $libPath = '.';
+    public $indexPath = '.';
+    public function __construct(){
+        $this-&gt;router = new brickyard_router_default;
+        $this-&gt;logger = new brickyard_logger_null;
+        $this-&gt;libPath = dirname(__FILE__);
+        $this-&gt;view = new brickyard_view_default(dirname(__FILE__) . DIRECTORY_SEPARATOR . &quot;tpl&quot;);
+    }
+    
+    public function getRouter()
+    {
+        return $this-&gt;router;
+    }
+    public function getView()
+    {
+        return $this-&gt;view;
+    }
+    public function getLogger()
+    {
+        return $this-&gt;logger;
+    }
+    public function getIndexPath()
+    {
+        return $this-&gt;indexPath;
+    }
+    
+    public function setRouter(brickyard_router_interface $router)
+    {
+        $this-&gt;router = $router;
+    }
+    public function setView(brickyard_view_interface $view)
+    {
+        $this-&gt;view = $view;
+    }
+    public function setLogger(brickyard_logger_interface $logger)
+    {
+        $this-&gt;logger = $logger;
+    }
+    public function setIndexPath($indexFilePath)
+    {
+        $this-&gt;indexPath = dirname($indexFilePath);
+    }
+    
+    
+    public function autoload($className){
+        $filename=$this-&gt;libPath . DIRECTORY_SEPARATOR;
+        $filename.=str_replace(&quot;_&quot;, DIRECTORY_SEPARATOR, $className);
+        $filename.=&quot;.php&quot;;
+        if (file_exists($filename)){
+            require $filename;
+            if (!class_exists($className, false)){
+                throw new brickyard_exception_autoload('Class ' . $className . ' expected to be in ' . $filename . '!');
+            }
+        } else {
+            throw new brickyard_exception_autoload('Class ' . $className . ' not found! Tried to find it in ' . $filename . '.');
+        }
+        
+    }
+    
+    function error_handler($errno, $errstr, $errfile, $errline )
+    {
+        throw new ErrorException($errstr, $errno, 0, $errfile, $errline);
+        
+    }
+    
+    public function exception_handler($e)
+    {
+        if ($this-&gt;inDevelMode){
+            $this-&gt;bluescreen($e);
+        } else {
+            $this-&gt;logger-&gt;logException($e);
+            
+            if ($e instanceof brickyard_exception_404){
+                $err = 404;
+            } elseif ($e instanceof brickyard_exception_403){
+                $err = 403;
+            } else {
+                $err = 'error';
+            }    
+            
+            if (file_exists($this-&gt;libPath . DIRECTORY_SEPARATOR . $err . '.html')){
+                ob_clean();
+                echo file_get_contents($this-&gt;libPath . DIRECTORY_SEPARATOR . $err . '.html');
+                exit; //to prevent more errors
+            }else{
+                echo &quot;An error occured. Also error page is missing.&quot;;
+            }
+            
+        }
+        
+    }
+    
+    public function shutdown_handler()
+    {
+        $error = error_get_last();
+        if ($error['type'] &amp; (E_ERROR | E_CORE_ERROR | E_COMPILE_ERROR | E_PARSE)) {
+            $fatal = new ErrorException($error['message'], $error['type'], 0, $error['file'], $error['line']);
+            $this-&gt;exception_handler($fatal);
+        }
+        
+    }
+    
+    public function bluescreen($e)
+    {
+        ob_clean();
+        $out=&quot;&lt;html&gt;&lt;head&gt;&lt;title&gt;error&lt;/title&gt;&lt;/head&gt;&lt;body&gt;&lt;h1&gt;:-(&lt;/h1&gt;&quot;;
+        $out.=&quot;&lt;div&gt;at &quot; . $e-&gt;getFile() . ':' . $e-&gt;getLine() . &quot;&lt;/div&gt;&quot;;
+        $out.=&quot;&lt;div&gt;&quot; . nl2br( $e-&gt;getMessage() ) . &quot;&lt;/div&gt;&quot;;
+        $out.=&quot;&lt;pre&gt;&quot; . $e-&gt;getTraceAsString() . &quot;&lt;/pre&gt;&quot;;
+        $out.=&quot;&lt;/body&gt;&lt;/html&gt;&quot;;
+        echo $out;
+        exit;
+        
+    }
+    
+    public function init(){
+        spl_autoload_register(array($this,&quot;autoload&quot;));
+        set_error_handler(array($this,&quot;error_handler&quot;));
+        register_shutdown_function(array($this, &quot;shutdown_handler&quot;));
+        set_exception_handler(array($this,&quot;exception_handler&quot;));
+        
+    }
+    
+    public function run(){
+        ob_start();
+        $controllerName = &quot;c_&quot; . $this-&gt;router-&gt;getController();
+        $methodName = $this-&gt;router-&gt;getMethod();
+        $args = $this-&gt;router-&gt;getArgs();
+        try {
+            $controllerInstance = new $controllerName;
+        } catch(brickyard_exception_autoload $e) {
+            throw new brickyard_exception_404($e-&gt;getMessage() );
+        }
+        $controllerInstance-&gt;framework=$this;
+        $call=array($controllerInstance, $methodName);
+        if (is_callable($call)){
+            call_user_func_array($call,$args);
+        }else{
+            throw new brickyard_exception_404('Method ' . $methodName . ' is invalid!');
+        }
+        
+    }
+}
+
+class brickyard_exception_autoload extends Exception{}
+
+class brickyard_exception_404 extends Exception{}
+
+class brickyard_exception_403 extends Exception{}
+
+interface brickyard_router_interface
+
+{
+
+    public function getController();
+
+    public function getMethod();
+
+    public function getArgs();
+
+    public function getLink($controller = null, $method = null, $args=array() );
+
+    
+
+}
+
+class brickyard_router_default implements brickyard_router_interface
+
+{
+
+    public $controller = &quot;home&quot;;
+
+    public $method = &quot;index&quot;;
+
+    public $args = array();
+
+    
+
+    function analyze()
+
+    {
+
+        $path=( isset($_SERVER[&quot;PATH_INFO&quot;]) ? explode(&quot;/&quot;,$_SERVER[&quot;PATH_INFO&quot;]) : array() );
+
+        if (count($path)&gt;1 and $path[1]!=''){$this-&gt;controller=$path[1];}
+
+        if (count($path)&gt;2  and $path[2]!=''){$this-&gt;method=$path[2];}
+
+        if (count($path)&gt;3){$this-&gt;args=array_slice($path,3);}
+
+    }
+
+    
+
+    public function getController()
+
+    {
+
+        $this-&gt;analyze();
+
+        return $this-&gt;controller;
+
+    }
+
+    
+
+    public function getMethod()
+
+    {
+
+        $this-&gt;analyze();
+
+        return $this-&gt;method;
+
+    }
+
+    
+
+    public function getArgs()
+
+    {
+
+        $this-&gt;analyze();
+
+        return $this-&gt;args;
+
+    }
+
+    
+
+    public function getLink($controller = null, $method = null, $args=array() )
+
+    {
+
+        $url = $_SERVER[&quot;SCRIPT_NAME&quot;];
+
+        if ($controller){
+
+            $url .= '/' . $controller;
+
+            if ($method){
+
+                $url .= '/' . $method;
+
+                if (count($args)&gt;0){
+
+                    $url .= '/' . implode('/', $args);
+
+                }
+
+            }
+
+        }
+
+        return $url;
+
+    }
+
+}
+
+interface brickyard_view_interface
+
+{
+
+    public function show($templateName, array $data);
+
+}
+
+class brickyard_view_default implements brickyard_view_interface
+
+{
+
+    private $tplPath=&quot;tpl&quot;;
+
+    
+
+    function __construct($tplPath)
+
+    {
+
+        $this-&gt;tplPath = $tplPath;
+
+    }
+
+    
+
+    public function show($tplName, array $data)
+
+    {
+
+        $tplFile = $this-&gt;tplPath . DIRECTORY_SEPARATOR . $tplName . &quot;.php&quot;;
+
+        if (file_exists($tplFile)) {
+
+            $data['view'] = $this;
+
+            extract($data, EXTR_SKIP);
+
+            ob_start();
+
+            include $tplFile;
+
+            $output = ob_get_contents();
+
+            ob_end_clean();
+
+            return $output;
+
+        } else {
+
+            throw new Exception('Template '.$tplName.' not found in file '.$tplFile);
+
+        }
+
+    }
+
+}
+
+interface brickyard_logger_interface
+
+{
+
+    public function logException(Exception $e);
+
+}
+
+class brickyard_logger_null implements brickyard_logger_interface
+
+{
+
+    function logException(Exception $e) {}
+
+}
+
+class brickyard_logger_file implements brickyard_logger_interface
+
+{
+
+    private $logFileName=&quot;log.txt&quot;;
+
+
+
+    function __construct($logFileName)
+
+    {
+
+        $this-&gt;logFileName = $logFileName;
+
+    }
+
+    
+
+    function logException(Exception $e)
+
+    {
+
+        $logged = '== ' . date('Y-m-d H:i:s') . PHP_EOL .
+
+        $e-&gt;getMessage() . PHP_EOL .
+
+        $e-&gt;getFile() . ':' . $e-&gt;getLine() . PHP_EOL .
+
+        $e-&gt;getTraceAsString() . PHP_EOL;
+
+        file_put_contents($this-&gt;logFileName, $logged, FILE_APPEND);
+
+    }
+
+}</pre></td></tr>

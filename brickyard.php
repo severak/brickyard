@@ -1,8 +1,35 @@
 <?php
+// Brickyard framework
+// ===================
+// 
+// Because reinventing the wheel is fun.
+// 
+// It aims to be simpler and smaller than others. Not suitable for enterprise.
+// 
+// Note that source of this documentation is source of framework itself.
 //
-// Brickyard framework by Severak
+// ##Usage
+// 
+// The usage is really simple. Minimal index.php file (an entry point and setup) look like this:
+// 
+// Firstly you need to include framework file and get one instance.
+// 
+//     <?php
+//     require "brickyard.php";
+//     $f=new brickyard();
+// 
+// Init function enables autoloading and exception handling.
+// 
+//     $f->init();
+// 
+// Finally run function will call router and start right controller and method.
+// 
+//     $f->run();
 //
-//I am not yet decided about license. But I prefer WTFPL.
+
+// ##How it works?
+// 
+// Here follows brickyard core explained.
 class brickyard
 {
 	public $inDevelMode = false;
